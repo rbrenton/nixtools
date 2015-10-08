@@ -90,7 +90,7 @@ function base10_to_ip4 {
 
 # Scan ip
 function scan_ip {
-  local do_mtu=$2 ip=$1 ms
+  local do_mtu=$2 ip=$1 mac="" ms="" mtu=""
 
   # Ping host
   ms=`ping_ip $ip`
@@ -101,13 +101,20 @@ function scan_ip {
   fi
 
   # Host up
-  echo -n "ip=$ip pong=$ms"
+  echo -n "pong ip=$ip ms=$ms"
+
+  # Find mac
+  echo -n " mac="
+  mac=`arp -an $ip|egrep -io "([a-f0-9]{2}:){5}[a-f0-9]{2}"`
+  echo -n $mac
 
   # Find mtu
   if [[ ! -z "$do_mtu" ]]
   then
     echo -n " mtu="
-    find_mtu $ip
+    echo -n $(find_mtu $ip)
+    #mtu=`find_mtu $ip`
+    #cho -n $mtu
   fi
 
   echo
@@ -115,36 +122,35 @@ function scan_ip {
 
 # Find mtu for ip
 function find_mtu {
-  local interval=0 ip=$1 mtu=128 mtu_cur=0 mtu_max=9000
+  local interval=0 ip=$1 mtu_found=0 mtu_cur=0 mtu_max=131072
 
   # Binary search for mtu
-  for interval in `echo 8192 4096 2048 1024 512 256 128 64 32 16 8 4 2 1`
+  for interval in `echo 65536 32768 16384 8192 4096 2048 1024 512 256 128 64 32 16 8 4 2 1`
   do
-    if [[ $mtu_cur -le $mtu ]]
+    if [[ $mtu_cur -le $mtu_found ]]
     then
       mtu_cur=$((mtu_cur + interval))
     else
       mtu_cur=$((mtu_cur - interval))
     fi
 
-    if [[ $mtu_cur -gt $mtu_max ]]
-    then
-      continue
-    fi
-
-    if [[ ! -z "`ping_ip $ip $mtu_cur`" ]]
-    then
-      mtu=$mtu_cur
-    fi
+    for i in `seq 1 5`
+    do
+      if [[ ! -z "`ping_ip $ip $mtu_cur`" ]]
+      then
+       mtu_found=$mtu_cur
+       break
+      fi
+    done
   done
 
-  echo -n $mtu
+  echo -n $mtu_found
 }
 
 # Ping ip
 function ping_ip {
   # 20 (IP) + 8 (ICMP)
-  local header_bytes=28 ip=$1 ms="0" mtu=$(($2+0)) pattern result timeout
+  local header_bytes=28 ip=$1 ms="0" mtu=$(($2+0)) pattern="" result="" timeout=250
 
   # Sanity check size
   if [[ $mtu -le 0 ]]
@@ -153,14 +159,15 @@ function ping_ip {
   fi
 
   # Set timeout in ms
-  if [[ $mtu -gt 2048 ]]
+  if [[ $mtu -gt 8192 ]]
   then
-    timeout=1000
+    timeout=700
+  elif [[ $mtu -gt 2048 ]]
+  then
+    timeout=600
   elif [[ $mtu -gt 512 ]]
   then
     timeout=500
-  else
-    timeout=250
   fi
 
   # Prefer fping if available
@@ -179,7 +186,7 @@ function ping_ip {
   then
     if [[ $result =~ $pattern ]]
     then
-      ms="${BASH_REMATCH[1]}ms"
+      ms="${BASH_REMATCH[1]}"
     fi
     echo -n $ms
     return 0
