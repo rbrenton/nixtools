@@ -19,7 +19,7 @@ do
   if [ $rot == "0" ]
   then
     /sbin/hdparm -a1024 /dev/$d > /dev/null
-    echo deadline > /sys/block/$d/queue/scheduler
+    echo deadline > /sys/block/$d/queue/scheduler   #default:deadline
     echo 0        > /sys/block/$d/queue/add_random  #default:0
     echo 2        > /sys/block/$d/queue/rq_affinity #default:1
   fi
@@ -28,7 +28,7 @@ do
   if [ $rot == "1" ]
   then
     /sbin/hdparm -a128 /dev/$d > /dev/null
-    echo noop     > /sys/block/$d/queue/scheduler
+    echo noop     > /sys/block/$d/queue/scheduler   #default:deadline
     echo 0        > /sys/block/$d/queue/add_random  #default:1
     echo 2        > /sys/block/$d/queue/rq_affinity #default:1
   fi
@@ -39,7 +39,7 @@ do
   do
     echo -n "$i=$(cat /sys/block/$d/queue/$i | trim), "
   done
-  echo -n "readahead=$(hdparm -a /dev/$d | grep = | cut -d= -f2 | trim) "
+  echo -n "readahead=$(/sbin/hdparm -a /dev/$d | grep = | cut -d= -f2 | trim) "
   echo ""
 
 done
