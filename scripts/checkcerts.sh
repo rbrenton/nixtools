@@ -41,13 +41,13 @@ checkhost() {
 
 if [ ! -z "$HOSTS_FILE" ]
 then
-  if [ ! -e $HOSTS_FILE ]
+  if [ ! -e "$HOSTS_FILE" ]
   then
     echo "Missing $HOSTS_FILE"
     exit 1
   fi
 
-  for host in `cat $HOSTS_FILE`
+  for host in `cat "$HOSTS_FILE"`
   do
     checkhost $host
   done
