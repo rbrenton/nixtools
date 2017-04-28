@@ -28,15 +28,38 @@ checkhost() {
   local date
   local host=$1
   local tmp
+  local status
 
-  echo -n "$host	"
-  date=$(echo | openssl s_client -connect $host:443 2> /dev/null | openssl x509 -noout -dates 2> /dev/null | egrep ^notAfter= | sed "s/notAfter=//")
-  if [ ! -z "$date" ]
+  echo -n "$host"
+  echo -n "	" # tab
+  date=$(echo | timeout 5 openssl s_client -connect $host:443 2> /dev/null | openssl x509 -noout -dates 2> /dev/null | egrep ^notAfter= | sed "s/notAfter=//")
+
+  if [ -z "$date" ]
   then
-    tmp="$(echo $date | cut '-d ' -f1,2), $(echo $date | cut '-d ' -f4) $(echo $date | cut '-d ' -f3)"
-    echo -n $(date --date "$tmp" "+%Y-%m-%d")
+    echo -n "	" # tab
+    status="UNKNOWN"
+  else
+    echo -n $(date --date="$date" '+%Y-%m-%d')
+    echo -n "	" # tab
+
+    ts=$(date --date="$date" '+%s')
+    now=$(date '+%s')
+
+    if [ $now -ge $ts ]
+    then
+      status="EXPIRED"
+    else
+      tmp=$(curl "https://$host" 2>&1 1> /dev/null | egrep "^curl:")
+      if [ ! -z "$tmp" ]
+      then
+        status="$tmp"
+      else
+        status="valid"
+      fi
+    fi
   fi
-  echo ""
+
+  echo "$status"
 }
 
 if [ ! -z "$HOSTS_FILE" ]
