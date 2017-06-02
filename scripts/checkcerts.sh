@@ -13,17 +13,6 @@ HOSTNAME is the host to check if -f is not provided.
 EOF
 }
 
-HOSTS_FILE=""
-
-while getopts "f:h" arg; do
-  case $arg in
-    f) HOSTS_FILE="$OPTARG" ;;
-    h) usage ; exit ;;
-  esac
-done
-shift $((OPTIND-1))
-
-
 checkhost() {
   local date
   local host=$1
@@ -49,10 +38,10 @@ checkhost() {
     then
       status="EXPIRED"
     else
-      tmp=$(curl "https://$host" 2>&1 1> /dev/null | egrep "^curl:")
+      tmp=$(curl --connect-timeout 3 "https://$host" 2>&1 1> /dev/null | egrep "^curl:")
       if [ ! -z "$tmp" ]
       then
-        status="$tmp"
+        status="ERROR - $tmp"
       else
         status="valid"
       fi
@@ -62,21 +51,36 @@ checkhost() {
   echo "$status"
 }
 
-if [ ! -z "$HOSTS_FILE" ]
-then
-  if [ ! -e "$HOSTS_FILE" ]
-  then
-    echo "Missing $HOSTS_FILE"
-    exit 1
-  fi
+main() {
+  HOSTS_FILE=""
 
-  for host in `cat "$HOSTS_FILE"`
-  do
-    checkhost $host
+  while getopts "f:h" arg; do
+    case $arg in
+      f) HOSTS_FILE="$OPTARG" ;;
+      h) usage ; exit ;;
+    esac
   done
-elif [ ! -z "$@" ]
-then
-  checkhost $@
-else
-  usage
-fi
+  shift $((OPTIND-1))
+
+
+  if [ ! -z "$HOSTS_FILE" ]
+  then
+    if [ ! -e "$HOSTS_FILE" ]
+    then
+      echo "Missing $HOSTS_FILE"
+      exit 1
+    fi
+
+    for host in `cat "$HOSTS_FILE"`
+    do
+      checkhost $host
+    done
+  elif [ ! -z "$@" ]
+  then
+    checkhost $@
+  else
+    usage
+  fi
+}
+
+main
